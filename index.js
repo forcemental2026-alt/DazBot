@@ -349,3 +349,13 @@ app.listen(PORT, '0.0.0.0', () => console.log(`[SERVER] Serveur Web de maintien 
 
 // Start the bot with a catch for fatal errors
 connectToWhatsApp().catch(err => console.log("[FATAL ERROR]", err));
+
+// --- GLOBAL ERROR HANDLERS ---
+// Empêche le bot de crasher complètement si WhatsApp ferme la connexion brutalement (Erreur EPIPE)
+process.on('uncaughtException', function (err) {
+    console.error('[UNCAUGHT EXCEPTION]', err.message || err);
+});
+
+process.on('unhandledRejection', function (err) {
+    console.error('[UNHANDLED REJECTION]', err.message || err);
+});
