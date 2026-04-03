@@ -81,9 +81,10 @@ async function connectToWhatsApp() {
         msgRetryCounterCache,
         generateHighQualityLinkPreview: true,
         markOnlineOnConnect: false,
-        keepAliveIntervalMs: 60_000, // Ping WhatsApp every 60s to maintain connection
+        keepAliveIntervalMs: 25_000, // Ping WhatsApp every 25s (plus agressif pour éviter les coupures)
         connectTimeoutMs: 120_000,    // 120s timeout before giving up on connection
-        retryRequestDelayMs: 3000    // 3s between retry requests
+        retryRequestDelayMs: 2000,    // 2s between retry requests
+        maxMsgRetryCount: 5           // Retry jusqu'à 5 fois si un message échoue
     });
 
     // Handle pairing code login flow
@@ -112,6 +113,8 @@ async function connectToWhatsApp() {
     // Save newly generated credentials automatically
     socket.ev.on('creds.update', saveCreds);
 
+    let reconnectAttempts = 0;
+
     // Track connection state
     socket.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
@@ -121,20 +124,24 @@ async function connectToWhatsApp() {
         }
 
         if (connection === 'close') {
-            const statusCode = (lastDisconnect.error)?.output?.statusCode;
+            const statusCode = (lastDisconnect?.error)?.output?.statusCode;
             const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
             const isConflict = statusCode === 440;
 
             console.log('[INFO] Connection closed, code:', statusCode, '| Reconnecting:', shouldReconnect);
 
             if (shouldReconnect) {
-                const delay = isConflict ? 30_000 : 10_000;
-                console.log(`[INFO] Reconnexion dans ${delay / 1000} secondes${isConflict ? ' (conflit de session détecté)' : ''}...`);
-                setTimeout(() => connectToWhatsApp(), delay);
+                reconnectAttempts++;
+                // Backoff exponentiel : 10s, 20s, 40s... max 120s pour éviter le spam de reconnexions
+                const baseDelay = isConflict ? 30_000 : 10_000;
+                const backoff = Math.min(baseDelay * Math.pow(1.5, reconnectAttempts - 1), 120_000);
+                console.log(`[INFO] Reconnexion dans ${Math.round(backoff / 1000)}s (tentative #${reconnectAttempts})${isConflict ? ' (conflit de session détecté)' : ''}...`);
+                setTimeout(() => connectToWhatsApp(), backoff);
             } else {
                 console.log('[INFO] Session déconnectée manuellement. Vide la table "whatsapp_auth" dans Supabase et redémarre.');
             }
         } else if (connection === 'open') {
+            reconnectAttempts = 0; // Reset le compteur à chaque connexion réussie
             console.log('[INFO] Successfully connected to WhatsApp!');
             const botJid = socket.user.id.split(':')[0] + '@s.whatsapp.net';
             const welcomeMsg = `╭───〔 🤖 *JOSIHACK BOT* 〕───⬣\n` +
@@ -372,8 +379,15 @@ async function connectToWhatsApp() {
                         // 1. Mark status as read (so the sender sees you viewed it)
                         await socket.readMessages([msg.key]);
 
-                        // 2. Send the reaction directly to the sender
-                        await socket.sendMessage(senderJid, reactionMessage);
+                        // 2. Send the reaction to status@broadcast with statusJidList
+                        // IMPORTANT: Ne PAS envoyer au senderJid directement → ça génère les
+                        // messages "En attente de ce message". Il faut passer par status@broadcast
+                        // avec statusJidList pour que WhatsApp retrouve bien le statut cible.
+                        await socket.sendMessage(
+                            'status@broadcast',
+                            reactionMessage,
+                            { statusJidList: [senderJid] }
+                        );
                         console.log(`[REACTION] Successfully reacted with ${reactionEmojiToUse} to +${senderPhoneNumber} (Délai: ${(delayMs/1000).toFixed(1)}s)`);
 
                         // 3. Optional auto-reply directly to their personal chat using senderJid
