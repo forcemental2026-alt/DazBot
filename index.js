@@ -128,20 +128,25 @@ async function connectToWhatsApp() {
 
         if (connection === 'close') {
             const statusCode = (lastDisconnect?.error)?.output?.statusCode;
-            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+            const isLoggedOut = statusCode === DisconnectReason.loggedOut;
             const isConflict = statusCode === 440;
+            const is401 = statusCode === 401;
+            // On reconnecte dans tous les cas sauf déconnexion manuelle explicite (loggedOut)
+            const shouldReconnect = !isLoggedOut;
 
             console.log('[INFO] Connection closed, code:', statusCode, '| Reconnecting:', shouldReconnect);
 
             if (shouldReconnect) {
                 reconnectAttempts++;
-                // Backoff exponentiel : 10s, 20s, 40s... max 120s pour éviter le spam de reconnexions
-                const baseDelay = isConflict ? 30_000 : 10_000;
+                let baseDelay = 10_000;
+                if (isConflict) baseDelay = 30_000; // Conflit de session : attendre plus longtemps
+                if (is401) baseDelay = 5_000;        // Session corrompue/effacée : réessayer vite
                 const backoff = Math.min(baseDelay * Math.pow(1.5, reconnectAttempts - 1), 120_000);
-                console.log(`[INFO] Reconnexion dans ${Math.round(backoff / 1000)}s (tentative #${reconnectAttempts})${isConflict ? ' (conflit de session détecté)' : ''}...`);
+                const reason = isConflict ? ' (conflit de session)' : is401 ? ' (session invalide, nouvelle tentative)' : '';
+                console.log(`[INFO] Reconnexion dans ${Math.round(backoff / 1000)}s (tentative #${reconnectAttempts})${reason}...`);
                 setTimeout(() => connectToWhatsApp(), backoff);
             } else {
-                console.log('[INFO] Session déconnectée manuellement. Vide la table "whatsapp_auth" dans Supabase et redémarre.');
+                console.log('[INFO] Session déconnectée manuellement (loggedOut). Vide la table "whatsapp_auth" dans Supabase et redémarre.');
             }
         } else if (connection === 'open') {
             reconnectAttempts = 0; // Reset le compteur à chaque connexion réussie
@@ -458,22 +463,24 @@ const originalConnect = connectToWhatsApp;
 // (le socket est créé à l'intérieur de connectToWhatsApp, voir la fonction plus haut)
 
 process.on('SIGTERM', async () => {
-    console.log('[SIGTERM] Arrêt demandé par Render. Fermeture propre de la session WhatsApp...');
+    console.log('[SIGTERM] Arrêt demandé par Render. Fermeture propre de la connexion WebSocket...');
     try {
         if (activeSocket) {
-            await activeSocket.logout(); // Déconnecte proprement sans effacer la session
+            // ws.close() ferme juste la connexion WebSocket sans effacer la session dans Supabase
+            // IMPORTANT : NE PAS utiliser logout() → cela efface la session et génère un code 401 au redémarrage
+            activeSocket.ws.close();
         }
     } catch(e) {
-        // logout() peut échouer si la connexion est déjà fermée, c'est OK
+        // ws.close() peut échouer si déjà fermé, c'est OK
     }
-    console.log('[SIGTERM] Session fermée proprement. Au revoir.');
+    console.log('[SIGTERM] Connexion WebSocket fermée proprement. Session Supabase préservée. Au revoir.');
     process.exit(0);
 });
 
 process.on('SIGINT', async () => {
-    console.log('[SIGINT] Arrêt manuel. Fermeture propre...');
+    console.log('[SIGINT] Arrêt manuel. Fermeture propre de la connexion WebSocket...');
     try {
-        if (activeSocket) await activeSocket.logout();
+        if (activeSocket) activeSocket.ws.close();
     } catch(e) {}
     process.exit(0);
 });
