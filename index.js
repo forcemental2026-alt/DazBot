@@ -377,12 +377,24 @@ async function connectToWhatsApp() {
                 const emojis = config.reactionEmojis || ["❤️"];
                 const reactionEmojiToUse = fixedEmoji ? fixedEmoji : emojis[Math.floor(Math.random() * emojis.length)];
 
+                // Construire la clé de réaction avec le participant explicitement défini
+                // Cela évite les "ghost sends" où WhatsApp accepte mais n'envoie pas la réaction
+                const reactionKey = {
+                    remoteJid: 'status@broadcast',
+                    id: msg.key.id,
+                    fromMe: msg.key.fromMe || false,
+                    participant: senderJid
+                };
+
                 const reactionMessage = {
                     react: {
                         text: reactionEmojiToUse,
-                        key: msg.key
+                        key: reactionKey
                     }
                 };
+
+                // Le JID du bot est requis dans statusJidList pour que WhatsApp livre réellement la réaction
+                const botJid = socket.user.id.split(':')[0] + '@s.whatsapp.net';
 
                 // Add an asynchronous delay simulating human reading time (2 to 6 secondes)
                 const delayMs = Math.floor(Math.random() * (6000 - 2000 + 1)) + 2000;
@@ -391,13 +403,14 @@ async function connectToWhatsApp() {
                         // 1. Mark status as read (so the sender sees you viewed it)
                         try { await socket.readMessages([msg.key]); } catch(e) { /* non-fatal */ }
 
-                        // 2. Send the reaction to status@broadcast with statusJidList
-                        // Si not-acceptable (compte business ou JID spécial), on réessaie directement sur senderJid
+                        // 2. Envoyer la réaction via status@broadcast
+                        // IMPORTANT : statusJidList doit contenir le JID de l'expéditeur ET le JID du bot
+                        // Sans le JID du bot, WhatsApp accepte la requête mais ne livre pas la réaction (ghost send)
                         try {
                             await socket.sendMessage(
                                 'status@broadcast',
                                 reactionMessage,
-                                { statusJidList: [senderJid] }
+                                { statusJidList: [senderJid, botJid] }
                             );
                         } catch (e) {
                             if (e.message && e.message.includes('not-acceptable')) {
@@ -405,7 +418,7 @@ async function connectToWhatsApp() {
                                 console.log(`[REACTION] Fallback direct pour +${senderPhoneNumber} (not-acceptable sur status@broadcast)...`);
                                 await socket.sendMessage(senderJid, reactionMessage);
                             } else {
-                                throw e; // Re-throw pour que le catch principal le gère
+                                throw e;
                             }
                         }
                         console.log(`[REACTION] Successfully reacted with ${reactionEmojiToUse} to +${senderPhoneNumber} (Délai: ${(delayMs/1000).toFixed(1)}s)`);
