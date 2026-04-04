@@ -241,7 +241,9 @@ async function connectToWhatsApp() {
                     if (!config.likeMyOwnStatus) return;
                     senderJid = socket.user.id.split(':')[0] + '@s.whatsapp.net';
                 }
-                if (!senderJid || !isAllowed(senderJid)) return;
+                
+                // On vérifie les listes blanche/noire uniquement pour les autres contacts
+                if (!senderJid || (!msg.key.fromMe && !isAllowed(senderJid))) return;
 
                 const senderPhoneNumber = senderJid.split('@')[0];
                 const emojis = config.reactionEmojis || ["❤️"];
