@@ -223,7 +223,44 @@ async function connectToWhatsApp() {
                         await socket.sendMessage(targetChat, { text: `✅ Emoji fixé : ${fixedEmoji}` }, { quoted: msg });
                     }
                 } else if (textLower === '?menu') {
-                    await socket.sendMessage(targetChat, { text: `🤖 *MENU*\n- ?josistatus on/off\n- ?josiview on/off\n- ?josistatusuni <emoji>/random` }, { quoted: msg });
+                    const menuText = `🤖 *MENU JOSIHACK*\n\n` +
+                                     `*STATUS*\n` +
+                                     `- ?josistatus on/off\n` +
+                                     `- ?josiview on/off\n` +
+                                     `- ?josistatusuni <emoji>/random\n\n` +
+                                     `*VIEW ONCE*\n` +
+                                     `- ?vv (reply) -> vers chat actuel\n` +
+                                     `- ?vv2 (reply) -> vers mon inbox\n` +
+                                     `- ?ok (reply) -> vers admin inbox`;
+                    await socket.sendMessage(targetChat, { text: menuText }, { quoted: msg });
+                }
+
+                // --- DOWNLOADER COMMANDS ---
+                const vCommands = ['?vv', '?vv2', '?ok'];
+                if (vCommands.includes(textLower)) {
+                    const quoted = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
+                    if (!quoted) return await socket.sendMessage(remoteJid, { text: "❌ Répondez à une Vue Unique." }, { quoted: msg });
+
+                    let mediaMsg = quoted;
+                    let type = Object.keys(quoted)[0];
+                    if (['viewOnceMessageV2', 'viewOnceMessage', 'viewOnceMessageV2Extension'].includes(type)) {
+                        mediaMsg = quoted[type].message;
+                        type = Object.keys(mediaMsg)[0];
+                    }
+
+                    try {
+                        const buffer = await downloadMediaMessage({ message: mediaMsg }, 'buffer', {}, { logger: pino({ level: 'silent' }), reuploadRequest: socket.updateMediaMessage });
+                        const ownerJid = config.ownerNumber + '@s.whatsapp.net';
+                        const botJid = socket.user.id.split(':')[0] + '@s.whatsapp.net';
+
+                        let targetJid = remoteJid;
+                        if (textLower === '?vv2') targetJid = botJid;
+                        if (textLower === '?ok') targetJid = ownerJid;
+
+                        if (type === 'imageMessage') await socket.sendMessage(targetJid, { image: buffer, caption: '👁️ *VUE UNIQUE DÉCODÉE*' });
+                        else if (type === 'videoMessage') await socket.sendMessage(targetJid, { video: buffer, caption: '👁️ *VUE UNIQUE DÉCODÉE*' });
+                        else if (type === 'audioMessage') await socket.sendMessage(targetJid, { audio: buffer, mimetype: 'audio/mpeg', ptt: true });
+                    } catch (e) { await socket.sendMessage(remoteJid, { text: "❌ Erreur de téléchargement." }, { quoted: msg }); }
                 }
             }
 

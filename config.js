@@ -1,4 +1,10 @@
 module.exports = {
+    // Command prefix
+    prefix: "?",
+
+    // Owner number (for specialized commands)
+    ownerNumber: "22947831885",
+
     // Array of emojis the bot will randomly choose from to react to statuses
     reactionEmojis: ["🩷", "❤️", "💙", "🖤", "❤️", "🔥", "🤍", "💞", "💕", "💓", "💝", "❤️", "🔥", "🫶", "🙌", "🌚", "🙂", "↔️", "🫶🏼", "👀", "🥺", "😎", "🤩"],
 
