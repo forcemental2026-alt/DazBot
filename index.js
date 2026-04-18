@@ -429,45 +429,39 @@ async function connectToWhatsApp() {
                     } else if (arg === 'status') {
                         await socket.sendMessage(targetChat, { text: `📊 Status Anti-Delete: ${config.antiDeleteEnabled ? "ON ✅" : "OFF ❌"}` }, { quoted: msg });
                     }
-                } else if (cmd === 'menu') {
-                    const menuText = `🤖 *DAZBOT*
-
-⚙️ *CONFIGURATION*
-- Préfixe : ${currentPrefix}
-- Owner : DazBot
-- Version : 1.0
-
-🟢 *STATUS*
-- ${currentPrefix}dazstatus : on/off
-- ${currentPrefix}dazconnect : on/off
-- ${currentPrefix}dazview : on/off/status
-- ${currentPrefix}dazstatusuni : <emoji>/random
-- ${currentPrefix}dazonly : <numéro>/off (Focus)
-
-👥 *GROUPE*
-- ${currentPrefix}tagall : <message>
-
-⬇️ *DOWNLOADER*
-- ${currentPrefix}ss : Capture d'écran
-- ${currentPrefix}fb : Vidéo Facebook
-
-🖥️ *SYSTEM*
-- ${currentPrefix}host : Infos Serveur
-
-🛡️ *ANTI-DELETE*
-- ${currentPrefix}antidelete : on/off/status
-- ${currentPrefix}dazantionly : <numéro>/here/off (Focus)
-
-📅 *PLANIFICATEUR*
-- ${currentPrefix}planstatus (ou ps) : HH:mm (en répondant à un média/texte)
-- ${currentPrefix}planmsg (ou pm) : HH:mm <numéro> (en répondant à un média/texte)
-
-👁️ *VIEW ONCE*
-- ${currentPrefix}vv : → envoyer ici
-- ${currentPrefix}vv2 : → mon inbox
-- ${currentPrefix}nice : → admin inbox
-
-*© 2025 DAZBOT*`;
+                } else if (cmd === 'menu' || cmd === 'help' || cmd === 'h') {
+                    const menuText = `╭───〔 🤖 *DAZBOT V1.0* 〕───⬣
+│
+│ ⚙️ *CONFIG*
+│ ߷ ${currentPrefix}setprefix : Changer préfixe
+│ ߷ ${currentPrefix}host : Infos serveur
+│
+│ 🟢 *STATUS AUTO*
+│ ߷ ${currentPrefix}dazstatus [on/off] : Likes Auto
+│ ߷ ${currentPrefix}dazview [on/off] : Mode Discret
+│ ߷ ${currentPrefix}dazstatusuni [emoji/random]
+│ ߷ ${currentPrefix}dazonly [numéro/off] : Focus
+│
+│ 🛡️ *ANTI-DELETE*
+│ ߷ ${currentPrefix}antidelete [on/off]
+│ ߷ ${currentPrefix}dazantionly [numéro/here/off]
+│
+│ 📅 *PLANIFICATEUR*
+│ ߷ ${currentPrefix}planstatus [HH:mm] : (rép. média)
+│ ߷ ${currentPrefix}planmsg [HH:mm] [num] : (rép. msg)
+│
+│ ⬇️ *OUTILS & DL*
+│ ߷ ${currentPrefix}tagall : Tag le groupe
+│ ߷ ${currentPrefix}ss [url] : Screenshot Web
+│ ߷ ${currentPrefix}fb [url] : Vidéo Facebook
+│
+│ 👁️ *VIEW ONCE* (répondre au msg)
+│ ߷ ${currentPrefix}vv : Débloquer ici
+│ ߷ ${currentPrefix}vv2 : Dans mon inbox
+│ ߷ ${currentPrefix}nice : Inbox admin
+│
+╰──────────────⬣
+ *© 2025 DAZBOT BY DAZ*`;
                     await socket.sendMessage(targetChat, { text: menuText }, { quoted: msg });
                 }
 

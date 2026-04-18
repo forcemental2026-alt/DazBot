@@ -53,6 +53,7 @@ Vous pouvez contrôler le bot en temps réel directement en vous envoyant un mes
 | `?dazantionly off` | Désactive l'Anti-Delete Focus et recommence à tout récupérer. |
 | `?planstatus HH:mm` | **Programmer un statut.** Répondez à un texte, photo, vidéo ou audio avec cette commande pour le poster plus tard. |
 | `?planmsg HH:mm <numéro>` | **Programmer un message.** Répondez à un texte ou média pour l'envoyer à quelqu'un à une heure précise. |
+| `?menu` (ou `?help`) | **Menu.** Affiche toutes les fonctionnalités du bot. |
 
 ---
 
