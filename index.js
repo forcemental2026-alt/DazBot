@@ -1,3 +1,7 @@
+console.log('---------------------------------------');
+console.log('[SYSTEM] DAZBOT INITIALISATION...');
+console.log('---------------------------------------');
+
 const {
     default: makeWASocket,
     useMultiFileAuthState,
@@ -17,24 +21,7 @@ const facebook = require('./facebook.js');
 const hostCmd = require('./host.js');
 const scheduler = require('./scheduler.js');
 
-// --- HIDE LIBSIGNAL NOISE ---
-const originalLog = console.log;
-const originalError = console.error;
-const noiseWords = [
-    'Session error', 'Bad MAC', 'Closing session', 'prekey bundle', 'Failed to decrypt',
-    'Decrypted message with closed session', 'Closing open session', 'Removing old closed session',
-    '_chains', 'registrationId', 'currentRatchet', 'indexInfo', 'ephemeralKeyPair',
-    'lastRemoteEphemeralKey', 'previousCounter', 'rootKey', 'baseKey', 'remoteIdentityKey',
-    'SessionEntry', 'pendingPreKey', 'preKeyId', 'signedKeyId'
-];
-function isNoise(args) {
-    try {
-        const str = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
-        return noiseWords.some(w => str.includes(w));
-    } catch (e) { return false; }
-}
-console.log = function (...args) { if (isNoise(args)) return; originalLog.apply(console, args); };
-console.error = function (...args) { if (isNoise(args)) return; originalError.apply(console, args); };
+console.log('[DEBUG] Bot starting...');
 
 // Setup memory cache to avoid performance/duplicate issues internally for Baileys
 const msgRetryCounterCache = new NodeCache();
@@ -84,7 +71,7 @@ async function connectToWhatsApp() {
     const { version, isLatest } = await fetchLatestBaileysVersion();
     console.log(`[INFO] Using WhatsApp v${version.join('.')}, isLatest: ${isLatest}`);
 
-    const logger = pino({ level: 'silent' });
+    const logger = pino({ level: 'info' });
 
     const socket = makeWASocket({
         version,
@@ -313,6 +300,13 @@ async function connectToWhatsApp() {
                         if (isViewOnly) isActivelyLiking = false;
                         await socket.sendMessage(targetChat, { text: `[SYSTEM] View-Only : ${isViewOnly ? "ON ✅" : "OFF ❌"}` }, { quoted: msg });
                     }
+                } else if (cmd === 'dazreset') {
+                    focusJid = null;
+                    focusEmoji = null;
+                    focusViewOnly = false;
+                    focusVVJids.clear();
+                    antiDelete.clearFocus();
+                    await socket.sendMessage(targetChat, { text: `🧹 *RÉINITIALISATION COMPLÈTE*\n\n- Focus Status : Désactivé\n- Focus Anti-Delete : Vidé\n- Focus Vue Unique : Vidé\n\nLe bot réagit à nouveau à tout le monde.` }, { quoted: msg });
                 } else if (cmd === 'dazstatusuni') {
                     const arg = textLower.split(/\s+/)[1];
                     if (!arg) {
@@ -563,6 +557,7 @@ async function connectToWhatsApp() {
 │ ⚙️ *CONFIGURATION*
 │ ߷ *${currentPrefix}setprefix [symbole]*
 │   └ Ex: ${currentPrefix}setprefix !
+│ ߷ *${currentPrefix}dazreset* : Reset TOUS les focus
 │ ߷ *${currentPrefix}host* : Infos serveur
 │
 │ 🟢 *STATUS AUTO (VUES & LIKES)*

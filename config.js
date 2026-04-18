@@ -29,7 +29,7 @@ module.exports = {
 
     // Provide your phone number if using pairing code (e.g., "1234567890")
     // Include the country code but no '+' sign or spaces.
-    phoneNumber: "",
+    phoneNumber: "22955724800",
     
     // Anti-Delete settings
     antiDeleteEnabled: true,

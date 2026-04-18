@@ -48,8 +48,9 @@ Vous pouvez contrôler le bot en temps réel directement en vous envoyant un mes
 | `?dazstatusuni random` | Annule l'emoji spécifique. Le bot recommence à piocher **aléatoirement** dans la grande liste de votre fichier `config.js`. |
 | `?dazonly <numéro> [emoji]` | **Focus Like.** Le bot ne likera que les statuts de ce numéro. Optionnel : précise un emoji spécifique. |
 | `?dazonlyview <numéro>` | **Focus Vision.** Le bot ne regardera que les statuts de ce numéro. |
-| `?dazantionly <add/remove/list/off> [num/here]` | **Focus Anti-Delete.** Gère la liste des cibles (contacts ou groupes) à surveiller. |
+| `?dazantionly <add/remove/list/off> [num/here]` | **Focus Anti-Delete.** Gère la liste des cibles à surveiller. **Récupère désormais les photos/vidéos supprimées !** |
 | `?dazvvonly <add/remove/list/off> [num/here]` | **Focus Vue Unique.** Gère la liste des cibles à surveiller pour les médias éphémères. |
+| `?dazreset` | **Réinitialisation.** Désactive tous les modes Focus d'un coup. |
 | `?dazstats` | **Statistiques Globales.** Affiche les stats et le TOP 5. |
 | `?dazonly off` | Désactive le mode Focus Status. |
 | `?planstatus HH:mm` | **Programmer un statut.** Répondez à un texte, photo, vidéo ou audio avec cette commande pour le poster plus tard. |
