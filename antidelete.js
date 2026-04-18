@@ -3,6 +3,14 @@ const config = require('./config.js');
 let messageCache = new Map();
 const CACHE_LIMIT = 2000;
 let focusAntiDeleteJid = null;
+let onRecoveredCallback = null;
+
+/**
+ * Définit le callback pour les statistiques.
+ */
+const setOnRecovered = (cb) => {
+    onRecoveredCallback = cb;
+};
 
 /**
  * Définit ou supprime le focus anti-suppression.
@@ -48,6 +56,7 @@ const reportRevocation = async (sock, deletedId) => {
 
             await sock.sendMessage(destination, { text: report });
             console.log(`[ANTIDELETE] Rapport envoyé pour ${deletedId}`);
+            if (onRecoveredCallback) onRecoveredCallback(sender);
             messageCache.delete(deletedId);
         } catch (e) {
             console.error("[ANTIDELETE] Send error:", e);
@@ -167,5 +176,6 @@ module.exports = {
     handleUpsert,
     handleUpdate,
     setFocus,
-    getFocus
+    getFocus,
+    setOnRecovered
 };

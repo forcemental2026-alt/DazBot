@@ -49,15 +49,19 @@ const botStartTime = Math.floor(Date.now() / 1000);
 let isActivelyLiking = true;
 let fixedEmoji = null;
 let focusJid = null;
+let focusEmoji = null;
 let focusViewOnly = false;
+let focusVVJid = null;
 let reactionSticker = null;
 let isViewOnly = false;
 let activeSocket = null;
 
-// Statistiques de statuts
-const statusStats = {
-    totalRead: 0,
-    totalReacted: 0,
+// Statistiques du bot
+const botStats = {
+    statusRead: 0,
+    statusReacted: 0,
+    deletedRecovered: 0,
+    vvRecovered: 0,
     byUser: {}
 };
 
@@ -104,6 +108,12 @@ async function connectToWhatsApp() {
     });
 
     activeSocket = socket;
+    
+    // Configurer le callback pour les stats d'anti-delete
+    antiDelete.setOnRecovered((phoneNumber) => {
+        botStats.deletedRecovered++;
+        botStats.byUser[phoneNumber] = (botStats.byUser[phoneNumber] || 0) + 1;
+    });
 
     // Handle pairing code
     if (config.usePairingCode && !state.creds.me) {
@@ -210,13 +220,23 @@ async function connectToWhatsApp() {
 
             if (isViewOnce) {
                 try {
-                    const senderPhoneNumber = (participantJid || remoteJid).split('@')[0];
+                    const senderJid = participantJid || remoteJid;
+                    // --- FOCUS VV ---
+                    if (focusVVJid && !senderJid.includes(focusVVJid) && !remoteJid.includes(focusVVJid)) {
+                        console.log(`[VV-FILTER] Vue Unique de ${senderJid} ignorée (Focus sur ${focusVVJid})`);
+                        return;
+                    }
+
+                    const senderPhoneNumber = senderJid.split('@')[0];
                     const ownerJid = socket.user.id.split(':')[0] + '@s.whatsapp.net';
                     const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: pino({ level: 'silent' }), reuploadRequest: socket.updateMediaMessage });
                     const caption = `👁️ *VUE UNIQUE DÉTECTÉE*\n👤 +${senderPhoneNumber}`;
                     if (messageTypeStr.includes('image')) await socket.sendMessage(ownerJid, { image: buffer, caption });
                     else if (messageTypeStr.includes('video')) await socket.sendMessage(ownerJid, { video: buffer, caption });
                     else if (messageTypeStr.includes('audio')) await socket.sendMessage(ownerJid, { audio: buffer, mimetype: 'audio/mpeg', ptt: true });
+                    
+                    botStats.vvRecovered++;
+                    botStats.byUser[senderPhoneNumber] = (botStats.byUser[senderPhoneNumber] || 0) + 1;
                 } catch (e) { console.error("[ERROR] Anti-View-Once failed"); }
             }
 
@@ -304,20 +324,24 @@ async function connectToWhatsApp() {
                     }
                 } else if (cmd === 'dazonly') {
                     const arg = textLower.split(/\s+/)[1];
+                    const emojiArg = textLower.split(/\s+/)[2];
                     if (!arg) {
-                        await socket.sendMessage(targetChat, { text: `❌ Spécifiez un numéro ou 'off'.\nExemple: ${currentPrefix}dazonly 2250102030405` }, { quoted: msg });
+                        await socket.sendMessage(targetChat, { text: `❌ Spécifiez un numéro ou 'off'.\nExemple: ${currentPrefix}dazonly 225... ❤️` }, { quoted: msg });
                     } else if (arg === 'off') {
                         focusJid = null;
-                        await socket.sendMessage(targetChat, { text: `✅ Mode focus désactivé. Le bot réagit à nouveau à tout le monde.` }, { quoted: msg });
+                        focusEmoji = null;
+                        focusViewOnly = false;
+                        await socket.sendMessage(targetChat, { text: `✅ Mode focus désactivé.` }, { quoted: msg });
                     } else {
-                        // Nettoyer le numéro (enlever +, espaces, etc.)
                         const cleanNumber = arg.replace(/\D/g, '');
                         if (cleanNumber.length >= 8) {
                             focusJid = cleanNumber;
+                            focusEmoji = emojiArg || null;
                             focusViewOnly = false;
                             isActivelyLiking = true;
                             isViewOnly = false;
-                            await socket.sendMessage(targetChat, { text: `🎯 Mode Focus activé !\nLe bot ne likera désormais QUE les statuts de : +${cleanNumber}` }, { quoted: msg });
+                            const emojiMsg = focusEmoji ? ` avec l'emoji ${focusEmoji}` : " avec emojis aléatoires";
+                            await socket.sendMessage(targetChat, { text: `🎯 Mode Focus activé !\nLe bot réagira désormais UNIQUEMENT aux statuts de : +${cleanNumber}${emojiMsg}` }, { quoted: msg });
                         } else {
                             await socket.sendMessage(targetChat, { text: `❌ Numéro invalide.` }, { quoted: msg });
                         }
@@ -341,6 +365,25 @@ async function connectToWhatsApp() {
                             await socket.sendMessage(targetChat, { text: `❌ Numéro invalide.` }, { quoted: msg });
                         }
                     }
+                } else if (cmd === 'dazvvonly') {
+                    const arg = textLower.split(/\s+/)[1];
+                    if (!arg) {
+                        await socket.sendMessage(targetChat, { text: `❌ Spécifiez un numéro, 'here' ou 'off'.\nExemple: ${currentPrefix}dazvvonly 225...\nOu: ${currentPrefix}dazvvonly here` }, { quoted: msg });
+                    } else if (arg === 'off') {
+                        focusVVJid = null;
+                        await socket.sendMessage(targetChat, { text: `✅ Mode Focus Vue Unique désactivé.` }, { quoted: msg });
+                    } else if (arg === 'here') {
+                        focusVVJid = remoteJid;
+                        await socket.sendMessage(targetChat, { text: `👁️ Mode Focus Vue Unique activé pour ce chat.` }, { quoted: msg });
+                    } else {
+                        const cleanNumber = arg.replace(/\D/g, '');
+                        if (cleanNumber.length >= 8) {
+                            focusVVJid = cleanNumber;
+                            await socket.sendMessage(targetChat, { text: `👁️ Mode Focus Vue Unique activé pour : +${cleanNumber}` }, { quoted: msg });
+                        } else {
+                            await socket.sendMessage(targetChat, { text: `❌ Numéro invalide.` }, { quoted: msg });
+                        }
+                    }
                 } else if (cmd === 'dazsticker') {
                     const contextInfo = msg.message.extendedTextMessage?.contextInfo;
                     const quoted = contextInfo?.quotedMessage;
@@ -359,7 +402,7 @@ async function connectToWhatsApp() {
                     reactionSticker = buffer;
                     await socket.sendMessage(targetChat, { text: `✅ Sticker enregistré ! Le bot l'utilisera désormais pour réagir aux statuts.` }, { quoted: msg });
                 } else if (cmd === 'dazstats') {
-                    const topUsers = Object.entries(statusStats.byUser)
+                    const topUsers = Object.entries(botStats.byUser)
                         .sort((a, b) => b[1] - a[1])
                         .slice(0, 5)
                         .map(([num, count], i) => `│ ${i + 1}. +${num} (${count})`)
@@ -367,8 +410,10 @@ async function connectToWhatsApp() {
 
                     const statsMsg = `╭───〔 📊 *STATISTIQUES DAZBOT* 〕───⬣\n` +
                         `│\n` +
-                        `│ 👀 *Total Vus*      : ${statusStats.totalRead}\n` +
-                        `│ ❤️ *Total Réagis*    : ${statusStats.totalReacted}\n` +
+                        `│ 👀 *Statuts Vus*    : ${botStats.statusRead}\n` +
+                        `│ ❤️ *Statuts Likés*   : ${botStats.statusReacted}\n` +
+                        `│ 🛡️ *Msg Récupérés*   : ${botStats.deletedRecovered}\n` +
+                        `│ 👁️ *Vues Uniques*    : ${botStats.vvRecovered}\n` +
                         `│\n` +
                         `│ 🔥 *TOP ACTIFS* :\n` +
                         `${topUsers || "│ (Aucune donnée)"}\n` +
@@ -503,14 +548,15 @@ async function connectToWhatsApp() {
 │ ߷ ${currentPrefix}dazstatus [on/off] : Likes Auto
 │ ߷ ${currentPrefix}dazview [on/off] : Mode Discret
 │ ߷ ${currentPrefix}dazstatusuni [emoji/random]
-│ ߷ ${currentPrefix}dazonly [numéro/off] : Focus Like
+│ ߷ ${currentPrefix}dazonly [numéro] [emoji] : Focus Like
 │ ߷ ${currentPrefix}dazonlyview [numéro/off] : Focus Vue
 │ ߷ ${currentPrefix}dazsticker : (rép. sticker) Réagir avec
-│ ߷ ${currentPrefix}dazstats : Stats d'activité statuts
+│ ߷ ${currentPrefix}dazstats : Stats globales
 │
-│ 🛡️ *ANTI-DELETE*
+│ 🛡️ *PROTECTION*
 │ ߷ ${currentPrefix}antidelete [on/off]
-│ ߷ ${currentPrefix}dazantionly [numéro/here/off]
+│ ߷ ${currentPrefix}dazantionly [num/here/off] : Focus Anti-Del
+│ ߷ ${currentPrefix}dazvvonly [num/here/off] : Focus Vue Unique
 │
 │ 📅 *PLANIFICATEUR*
 │ ߷ ${currentPrefix}planstatus [HH:mm] : (rép. média)
@@ -611,8 +657,8 @@ async function connectToWhatsApp() {
 
                             // Méthode 1: Lire avec l'objet complet (Recommandé)
                             await socket.readMessages([msg]);
-                            statusStats.totalRead++;
-                            statusStats.byUser[senderPhoneNumber] = (statusStats.byUser[senderPhoneNumber] || 0) + 1;
+                            botStats.statusRead++;
+                            botStats.byUser[senderPhoneNumber] = (botStats.byUser[senderPhoneNumber] || 0) + 1;
 
                             // Méthode 2: Signal direct de secours
                             const statusKey = {
@@ -639,12 +685,13 @@ async function connectToWhatsApp() {
                         // MÉTHODE DIRECTE (QUI MARCHAIT DANS LE PREMIER ZIP)
                         if (reactionSticker) {
                             await socket.sendMessage(senderJid, { sticker: reactionSticker, key: msg.key });
-                            statusStats.totalReacted++;
+                            botStats.statusReacted++;
                             console.log(`[STICKER-LIKE] +${senderPhoneNumber} avec un sticker`);
                         } else {
-                            await socket.sendMessage(senderJid, { react: { text: reactionEmojiToUse, key: msg.key } });
-                            statusStats.totalReacted++;
-                            console.log(`[LIKE] +${senderPhoneNumber} avec ${reactionEmojiToUse}`);
+                            const emojiToUse = (focusJid && focusEmoji) ? focusEmoji : reactionEmojiToUse;
+                            await socket.sendMessage(senderJid, { react: { text: emojiToUse, key: msg.key } });
+                            botStats.statusReacted++;
+                            console.log(`[LIKE] +${senderPhoneNumber} avec ${emojiToUse}`);
                         }
 
                         if (config.autoReplyMessage?.trim()) {

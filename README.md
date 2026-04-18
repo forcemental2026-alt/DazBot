@@ -46,14 +46,12 @@ Vous pouvez contrôler le bot en temps réel directement en vous envoyant un mes
 | `?dazstatusuni` | **Aide.** Affiche le menu d'aide avec l'état actuel des statuts (activés/désactivés + mode emoji). |
 | `?dazstatusuni <emoji>` | Force le bot à utiliser **cet emoji 100% du temps** (exemple : `?dazstatusuni ❤️` ou `?dazstatusuni 🍉`). Réactive aussi automatiquement les likes globaux. |
 | `?dazstatusuni random` | Annule l'emoji spécifique. Le bot recommence à piocher **aléatoirement** dans la grande liste de votre fichier `config.js`. |
-| `?dazonly <numéro>` | **Mode Focus Like.** Le bot ne likera que les statuts de ce numéro spécifique. |
-| `?dazonlyview <numéro>` | **Mode Focus Vision.** Le bot ne regardera que les statuts de ce numéro spécifique. |
-| `?dazsticker` | **Réaction Sticker.** Répondez à un sticker avec cette commande pour l'utiliser comme réaction aux statuts. |
-| `?dazstats` | **Statistiques.** Affiche les statistiques de visionnage et de réactions du bot. |
-| `?dazonly off` | Désactive le mode Focus et recommence à liker tout le monde. |
-| `?dazantionly <numéro>` | **Anti-Delete Focus.** Le bot ne récupérera que les messages supprimés de ce numéro. |
-| `?dazantionly here` | **Anti-Delete Focus Groupe.** Le bot ne récupérera que les messages supprimés de ce groupe (ou discussion actuelle). |
-| `?dazantionly off` | Désactive l'Anti-Delete Focus et recommence à tout récupérer. |
+| `?dazonly <numéro> [emoji]` | **Focus Like.** Le bot ne likera que les statuts de ce numéro. Optionnel : précise un emoji spécifique. |
+| `?dazonlyview <numéro>` | **Focus Vision.** Le bot ne regardera que les statuts de ce numéro. |
+| `?dazantionly <num/here/off>` | **Focus Anti-Delete.** Récupère uniquement les messages supprimés d'une personne ou d'un chat. |
+| `?dazvvonly <num/here/off>` | **Focus Vue Unique.** Récupère uniquement les médias à vue unique d'une personne ou d'un chat. |
+| `?dazstats` | **Statistiques Globales.** Affiche les stats (Vues, Likes, Supprimés, Vues Uniques) et le TOP 5. |
+| `?dazonly off` | Désactive le mode Focus Status. |
 | `?planstatus HH:mm` | **Programmer un statut.** Répondez à un texte, photo, vidéo ou audio avec cette commande pour le poster plus tard. |
 | `?planmsg HH:mm <numéro>` | **Programmer un message.** Répondez à un texte ou média pour l'envoyer à quelqu'un à une heure précise. |
 | `?menu` (ou `?help`) | **Menu.** Affiche toutes les fonctionnalités du bot. |
