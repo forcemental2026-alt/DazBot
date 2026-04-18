@@ -9,8 +9,6 @@ const {
 const pino = require('pino');
 const config = require('./config.js');
 const NodeCache = require('node-cache');
-const { createClient } = require('@supabase/supabase-js');
-const useSupabaseAuthState = require('./supabaseAuth');
 const express = require('express');
 const antiDelete = require('./antidelete.js');
 const tagAll = require('./tagall.js');
@@ -80,10 +78,8 @@ function isAllowed(jid) {
 }
 
 async function connectToWhatsApp() {
-    const supabase = createClient(config.supabaseUrl, config.supabaseKey);
-
-    console.log('[INFO] Loading WhatsApp Session from Supabase Cloud...');
-    const { state, saveCreds } = await useSupabaseAuthState(supabase, 'whatsapp_auth');
+    console.log('[INFO] Chargement de la session WhatsApp locale...');
+    const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
 
     const { version, isLatest } = await fetchLatestBaileysVersion();
     console.log(`[INFO] Using WhatsApp v${version.join('.')}, isLatest: ${isLatest}`);

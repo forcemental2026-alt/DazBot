@@ -31,10 +31,6 @@ module.exports = {
     // Include the country code but no '+' sign or spaces.
     phoneNumber: "",
     
-    // Supabase credentials for remote auth state storage
-    supabaseUrl: "",
-    supabaseKey: "",
-
     // Anti-Delete settings
     antiDeleteEnabled: true,
     antiDeleteChat: "", // Default destination for deleted messages
