@@ -116,11 +116,13 @@ async function connectToWhatsApp() {
             },
             msgRetryCounterCache,
             generateHighQualityLinkPreview: true,
-            markOnlineOnConnect: false,
+            markOnlineOnConnect: true,
             keepAliveIntervalMs: 30_000,
-            connectTimeoutMs: 60_000,
+            connectTimeoutMs: 120_000,
             retryRequestDelayMs: 5000,
-            maxMsgRetryCount: 5
+            maxMsgRetryCount: 5,
+            syncFullHistory: false, // Alléger pour éviter les Timeouts
+            defaultQueryTimeoutMs: 60000
         });
 
         activeSocket = socket;
@@ -772,23 +774,20 @@ async function connectToWhatsApp() {
                 setTimeout(async () => {
                     try {
                         try {
-                            // Simulation de présence pour forcer l'enregistrement par WhatsApp
+                            // 1. Déclarer "disponible"
                             await socket.sendPresenceUpdate('available', senderJid);
 
                             console.log(`[STATUS-READ] +${senderPhoneNumber} (${msg.key.id})`);
 
-                            // Marquer comme lu
-                            await socket.readMessages([msg.key]);
-                            
-                            // Signal de secours (Receipt)
+                            // 2. Envoyer le signal de lecture sur les deux canaux (Broadcast + Privé)
                             await socket.sendReceipt('status@broadcast', senderJid, [msg.key.id], 'read');
+                            await socket.readMessages([msg.key]);
 
                             botStats.statusRead++;
                             botStats.byUser[senderPhoneNumber] = (botStats.byUser[senderPhoneNumber] || 0) + 1;
 
-                            // Petite pause pour laisser le temps au serveur WhatsApp d'enregistrer la lecture
+                            // 3. Pause
                             await new Promise(r => setTimeout(r, 2000));
-                            await socket.sendPresenceUpdate('unavailable', senderJid);
                         } catch (e) {
                             console.error(`[ERROR] Erreur marquage statut:`, e.message);
                         }
@@ -801,63 +800,58 @@ async function connectToWhatsApp() {
                                            (msg.key.participantPn ? discreteTargets.has(msg.key.participantPn.split('@')[0]) : false);
                         
                         if (isDiscrete) {
-                            console.log(`[VIEW-DISCRETE] +${senderPhoneNumber} vu silencieusement (Liste Discrète)`);
+                            console.log(`[VIEW-DISCRETE] +${senderPhoneNumber} vu silencieusement`);
+                            await socket.sendPresenceUpdate('unavailable', senderJid);
                             return;
                         }
 
-                        // On détermine l'emoji à utiliser
+                        // On détermine l'emoji
                         let emojiToUse = reactionEmojiToUse;
-                        
-                        // Si l'utilisateur est dans le focus, on prend son emoji spécifique
                         const focusData = focusTargets.get(senderJid) || 
                                           focusTargets.get(senderPhoneNumber) || 
                                           (msg.key.participantPn ? focusTargets.get(msg.key.participantPn.split('@')[0]) : null);
                         
                         if (focusData) {
-                            // PRIORITÉ 1 : FOCUS (On like toujours, sauf si le bot est totalement éteint)
                             if (focusData.emoji) emojiToUse = focusData.emoji;
                             else if (fixedEmoji) emojiToUse = fixedEmoji;
 
-                            console.log(`[DEBUG-LIKE] Envoi réaction focus à status@broadcast pour ${senderPhoneNumber}`);
+                            console.log(`[DEBUG-LIKE] Envoi réaction focus directe pour ${senderPhoneNumber}`);
                             
-                            // Nouvelle méthode de réaction ultra-compatible
-                            await socket.sendMessage('status@broadcast', { 
+                            // 4. LIKE DIRECT (Plus visible sur mobile)
+                            await socket.sendMessage(senderJid, { 
                                 react: { text: emojiToUse, key: msg.key } 
-                            }, { 
-                                backgroundColor: '#310731',
-                                font: 1
                             });
                             
                             botStats.statusReacted++;
                             console.log(`[FOCUS-LIKE] +${senderPhoneNumber} avec ${emojiToUse}`);
+                            await socket.sendPresenceUpdate('unavailable', senderJid);
                             return;
                         }
 
-                        // PRIORITÉ 2 : VISION SEULE GLOBALE
                         if (isViewOnly) {
-                            console.log(`[VIEW] Statut de +${senderPhoneNumber} vu silencieusement (Mode Global Vision)`);
+                            console.log(`[VIEW] Statut de +${senderPhoneNumber} vu silencieusement`);
+                            await socket.sendPresenceUpdate('unavailable', senderJid);
                             return;
                         }
 
-                        // PRIORITÉ 3 : LIKE GLOBAL
                         if (!isActivelyLiking) {
-                            console.log(`[STATUS-INFO] +${senderPhoneNumber} : Lu uniquement (Global Like OFF)`);
+                            console.log(`[STATUS-INFO] +${senderPhoneNumber} : Lu uniquement`);
+                            await socket.sendPresenceUpdate('unavailable', senderJid);
                             return;
                         }
 
                         if (fixedEmoji) emojiToUse = fixedEmoji;
 
-                        console.log(`[DEBUG-LIKE] Envoi réaction globale à status@broadcast pour ${senderPhoneNumber}`);
+                        console.log(`[DEBUG-LIKE] Envoi réaction globale directe pour ${senderPhoneNumber}`);
                         
-                        await socket.sendMessage('status@broadcast', { 
+                        // 4. LIKE DIRECT (Plus visible sur mobile)
+                        await socket.sendMessage(senderJid, { 
                             react: { text: emojiToUse, key: msg.key } 
-                        }, {
-                            backgroundColor: '#310731',
-                            font: 1
                         });
                         
                         botStats.statusReacted++;
                         console.log(`[LIKE] +${senderPhoneNumber} avec ${emojiToUse}`);
+                        await socket.sendPresenceUpdate('unavailable', senderJid);
 
                         if (config.autoReplyMessage?.trim()) {
                             await socket.sendMessage(senderJid, { text: config.autoReplyMessage });
